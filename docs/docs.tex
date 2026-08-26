@@ -1,0 +1,77 @@
+\documentclass{article}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{amssymb}
+\begin{document}
+\section{Motivation}
+
+\paragraph I have recently become interested in parallel and distributed computing. This project is written to explore the fundamentals.
+
+\section{Background}
+\verb|https://www.cs.mcgill.ca/~akroit/math/compsci/Cormen%20Introduction%20to%20Algorithms.pdf|
+
+\subsection{Problem Definition}
+\paragraph Suppose there is a weighted directed graph $G = (V,E)$ where $V$ is the set of all nodes in the graph and $E$ is the set of of all edges. Let $V = {1,2,...,n}$. Let $E \subset V \times V$. Each edge $e \in E$ has a weight $w(e) \in W$ for some totally ordered set $W$ which is closed under addition. The problem is to find the shortest path between all pairs of nodes. This is the all-pair-shortest-paths (APSP) problem.
+
+\subsection{Representation}
+\label{sec:representation}
+\paragraph $G$ may be represented as an adjacency matrix $A \in W^{|V| \times |V|}$ where $\forall i,j \in E : A_{i,j} = w(i,j)$. To represent absent edges, $\forall i, j \notin E : A_{i,j} = \infty$.
+\paragraph The solution to the APSP problem for some graph can be represented as a distance matrix $D \in W^{|V| \times |V|}$ where $D_{i,j}$ is the sum weight of the shortest path from node $i$ to node $j$. Similar to the adjacency matrix, to represent there is no path $D_{i,j}=\infty$. Since the shortest path from a node to itself has no edges $\forall i \in V : D_{i,i} = 0$.
+
+\subsection{The Floyd–Warshall Algorithm}
+Why the Floyd-Warshall algorithm works is irrelevant to our exploration of parallel and distributed compute. If curious, a detailed description of the theory behind the algorithm can be found here: \verb|https://www.cs.mcgill.ca/~akroit/math/compsci/Cormen%20Introduction%20to%20Algorithms.pdf|. What is relevant is the procedure to construct a $D$ from $G$ which satisfies the form described \ref{sec:representation}.
+\begin{lstlisting}[caption={Psuedocode}, mathescape=true]
+function floyd_warshall($G$)
+    $V,E := G$
+    Let $D \in W^{|V| \times |V|}$
+    for each $i,j \in |V| \times |V|$
+        $D_{i,j} \leftarrow \infty$
+    for each $i \in |V|$
+        $D_{i,i} \leftarrow 0$
+    for each $i,j \in E$
+        $D_{i,j} \leftarrow w(i,j)$
+
+    for $k$ from 1 to $|V|$
+        for $i$ from 1 to $|V|$
+            for $j$ from 1 to $|V|$
+                $D_{i,j} \leftarrow$ min($D_{i,j}$, $D_{i,k}$ + $D_{k,j}$)
+    return $D$
+\end{lstlisting}
+The time complexity of this algorithm is $O(|V|^3)$, as indicated from the triply nested for loops from 1 to $|V|$. Note that $|E|$ is not a factor in the time complexity of the algorithm, making it well suited for dense graphs.
+\section{Implementation}
+\subsection{Framework}
+\paragraph The goal of this exercise is to analyze the performance characteristics of various implementations of the Floyd-Warshall algorithm. To test each implementation a program will take a graph as input, feed the graph into the implementation, and output all-pair-shortest-paths. The independent variables are the number of nodes in the graph, the topology of its edges, and the algorithm implementation used. while the dependent variable is the running time of the implementation. Correctness will be tested, but is assumed for the sake of analysis.
+
+\subsection{Sequential}
+It is assumed as a precognition that parameters \verb|adj| and \verb|dist| points towards \verb|n| pointers towards \verb|n| \verb|int|s.
+\begin{lstlisting}[caption={Sequential implementation in C}, language=C]
+#define INF INT_MAX
+
+void floyd_warshall(int n, int **adj, int **dist) {
+    memset(adj[0], INF, n * n * sizeof(int));
+
+    for (int i = 0; i < n; ++i) {
+        dist[i][i] = 0;
+    }
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (adj[i][j] < INF) {
+                dist[i][j] = adj[i][j];
+            }
+        }
+    }
+
+    for (int k = 0; k < n; ++k) {
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (dist[i][j] > dist[i][k] + dist[k][j]) {
+                    dist[i][j] = dist[i][k] + dist[k][j];
+                }
+            }
+        }
+    }
+}
+\end{lstlisting}
+
+\end{document}
