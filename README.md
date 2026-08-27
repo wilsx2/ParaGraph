@@ -1,3 +1,3 @@
-# CMake C++ Project Template
+# ParaGraph
 
-Fork to use.
+An experiment in applying parallel and distributed techniques to the Floyd-Warshall algorithm for all-pairs shortest paths.
