@@ -2,6 +2,7 @@ from typing import Union
 from enum import Enum
 import networkx as nx
 import numpy as np
+import itertools
 import ctypes.util
 import ctypes
 import random
@@ -13,20 +14,28 @@ PPINT = ctypes.POINTER(ctypes.POINTER(ctypes.c_int))
 class Algorithm(Enum):
     SEQUENTIAL_FLOYD_WARSHALL = 1
 
+def random_u8_sequence(n: int):
+    while n > 0:
+        yield random.randint(0, 255)
+        n -= 1
+
+
 class GraphDescription:
-    def __init__(self, n: int, density: float, seed: int):
+    def __init__(self, n: int, m: int, seed: int):
         self.n = n
-        self.density = density
+        self.m = m
         self.seed = seed
 
     def generate(self) -> nx.DiGraph:
-        random.seed(self.seed)
         graph = nx.DiGraph()
-        graph.add_nodes_from(range(0, self.n))
-        for i in range(self.n):
-            for j in range(self.n):
-                if random.random() < self.density:
-                    graph.add_edge(i, j, weight=random.randint(0, 255))
+        graph.add_nodes_from(range(self.n))
+
+        possible_edges = list(itertools.permutations(range(self.n), 2))
+        random.seed(self.seed)
+        edges = random.sample(possible_edges, k=self.m)
+        ws = random_u8_sequence(self.m)
+        graph.add_edges_from((u, v, {'weight': w}) for (u, v), w in zip(edges, ws))
+
         return graph
 
 def save_graph_to_cmatrix(graph: nx.DiGraph, mat, n: int):
@@ -51,7 +60,7 @@ def get_libparagraph():
 
     return lib
 
-def time_algorithm(graph: nx.DiGraph, algo: Algorithm):
+def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
     lib = get_libparagraph()
     n = graph.number_of_nodes()
     c_n = ctypes.c_int(n)
@@ -62,9 +71,9 @@ def time_algorithm(graph: nx.DiGraph, algo: Algorithm):
     dist = lib.pargph_alloc_matrix(c_n, c_n)
 
     if algo == Algorithm.SEQUENTIAL_FLOYD_WARSHALL:
-        start = time.perf_counter()
+        start = time.perf_counter_ns()
         lib.pargph_seq_floyd_warshall(n, adj, dist)
-        end = time.perf_counter()
+        end = time.perf_counter_ns()
         elapsed = end - start
     else:
         sys.exit(f"Algorithm provided not recognized {algo}")
@@ -74,5 +83,5 @@ def time_algorithm(graph: nx.DiGraph, algo: Algorithm):
     return elapsed
 
 if __name__ == "__main__":
-    elapsed = time_algorithm(GraphDescription(8, 0.5, 0).generate(), Algorithm.SEQUENTIAL_FLOYD_WARSHALL)
-    print(f"Running da algo took {elapsed:.6f} seconds\n")
+    elapsed = time_algorithm(GraphDescription(8, 56, 0).generate(), Algorithm.SEQUENTIAL_FLOYD_WARSHALL)
+    print(f"Running da algo took {elapsed} nanoseconds\n")
