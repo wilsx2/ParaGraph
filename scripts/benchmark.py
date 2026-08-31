@@ -17,6 +17,7 @@ PPINT = ctypes.POINTER(ctypes.POINTER(ctypes.c_int))
 
 class Algorithm(Enum):
     SEQUENTIAL_FLOYD_WARSHALL = 1
+    PARALLEL_FLOYD_WARSHALL = 2
 
 
 def random_u8_sequence(n: int):
@@ -75,6 +76,9 @@ def get_libparagraph():
     lib.pargph_seq_floyd_warshall.argtypes = [PPINT, PPINT, ctypes.c_int]
     lib.pargph_seq_floyd_warshall.restype = None
 
+    lib.pargph_par_floyd_warshall.argtypes = [PPINT, PPINT, ctypes.c_int]
+    lib.pargph_par_floyd_warshall.restype = None
+
     return lib
 
 
@@ -88,13 +92,15 @@ def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
 
     dist = lib.pargph_alloc_matrix(c_n, c_n)
 
+    start = time.perf_counter_ns()
     if algo == Algorithm.SEQUENTIAL_FLOYD_WARSHALL:
-        start = time.perf_counter_ns()
         lib.pargph_seq_floyd_warshall(adj, dist, n)
-        end = time.perf_counter_ns()
-        elapsed = end - start
+    elif algo == Algorithm.PARALLEL_FLOYD_WARSHALL:
+        lib.pargph_par_floyd_warshall(adj, dist, n)
     else:
         sys.exit(f"Algorithm provided not recognized {algo}")
+    end = time.perf_counter_ns()
+    elapsed = end - start
 
     test = lib.pargph_alloc_matrix(c_n, c_n)
     save_apsp_to_cmatrix(graph, test)
@@ -136,9 +142,12 @@ def run_benchmarks(
 
     file = open(filename, mode="w", encoding="utf-8")
     writer = csv.writer(file)
-    writer.writerow(["Nodes", "Edges", "Density", "ElapsedNS"])
+    writer.writerow(["Nodes", "Edges", "Density", "Algorithm", "ElapsedNS"])
 
-    for algo in [Algorithm.SEQUENTIAL_FLOYD_WARSHALL]:
+    for algo in [
+        Algorithm.SEQUENTIAL_FLOYD_WARSHALL,
+        Algorithm.PARALLEL_FLOYD_WARSHALL,
+    ]:
         for e in range(min_node_exp, max_node_exp):
             n = node_exp_scale**e
             max_m = n * (n - 1)
@@ -149,7 +158,7 @@ def run_benchmarks(
             ):
                 density = percent_density / 100.0
                 m = int(max_m * density)
-                print(f"Starting trial: n={n}, m={m} ({percent_density}% density)\n")
+                print(f"Starting trial: algo={algo.name}, n={n}, m={m} ({percent_density}% density)\n")
                 graph = generate_graph(n, m, 0)
                 print("Warming up...")
                 total = 0
@@ -158,7 +167,7 @@ def run_benchmarks(
                     total += elapsed
                     if i >= warmup_iters:
                         print(f"Trial #{i-warmup_iters}: {elapsed} ns")
-                    writer.writerow([n, m, density, elapsed])
+                    writer.writerow([n, m, density, algo.name, elapsed])
                 print(f"Avg={total/test_iters}")
 
     file.close()

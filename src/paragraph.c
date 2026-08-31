@@ -1,8 +1,8 @@
 #include "paragraph.h"
-#include <stdio.h>
 #include <assert.h>
 #include <limits.h>
 #include <memory.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -59,6 +59,43 @@ void pargph_seq_floyd_warshall(int **adj, int **dist, int n) {
                 if (dist[i][k] < INF && dist[k][j] < INF &&
                     dist[i][j] > dist[i][k] + dist[k][j]) {
                     dist[i][j] = dist[i][k] + dist[k][j];
+                }
+            }
+        }
+    }
+}
+
+void pargph_par_floyd_warshall(int **adj, int **dist, int n) {
+    assert(adj && dist);
+
+#pragma omp parallel
+    {
+#pragma omp for
+        for (int i = 0; i < n * n; ++i)
+            dist[0][i] = INF;
+
+#pragma omp for
+        for (int i = 0; i < n; ++i) {
+            dist[i][i] = 0;
+        }
+
+#pragma omp for collapse(2)
+        for (int i = 0; i < n; ++i) {
+            for (int j = 0; j < n; ++j) {
+                if (adj[i][j] < INF) {
+                    dist[i][j] = adj[i][j];
+                }
+            }
+        }
+
+        for (int k = 0; k < n; ++k) {
+#pragma omp for collapse(2)
+            for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < n; ++j) {
+                    if (dist[i][k] < INF && dist[k][j] < INF &&
+                        dist[i][j] > dist[i][k] + dist[k][j]) {
+                        dist[i][j] = dist[i][k] + dist[k][j];
+                    }
                 }
             }
         }

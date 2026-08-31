@@ -47,9 +47,9 @@ add_library(paragraph SHARED src/paragraph.c)
 target_include_directories(paragraph PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
-#target_link_libraries(paragraph PRIVATE
-#    OpenMP::OpenMP_CPP
+target_link_libraries(paragraph PRIVATE
+    OpenMP::OpenMP_C
 #    MPI::MPI_CPP
-#)
+)
 add_executable(example src/example.c)
 target_link_libraries(example PRIVATE paragraph)
