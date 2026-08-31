@@ -31,6 +31,18 @@ OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     )
 endif()
 
+# Debug information
+if(CMAKE_BUILD_TYPE STREQUAL "Debug"
+OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+    add_compile_options(
+        $<$<COMPILE_LANGUAGE:C>:-pg>
+        $<$<COMPILE_LANGUAGE:C>:-fopt-info-vec>
+        $<$<COMPILE_LANGUAGE:C>:-fopt-info-vec-missed>
+    )
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -pg")
+endif()
+
 # Packages
 find_package(OpenMP REQUIRED)
 find_package(MPI REQUIRED COMPONENTS C)

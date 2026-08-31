@@ -12,7 +12,8 @@ import time
 import csv
 import sys
 
-PPINT = ctypes.POINTER(ctypes.POINTER(ctypes.c_int))
+PINT = ctypes.POINTER(ctypes.c_int)
+INF = np.iinfo(np.intc).max//2 - 1
 
 
 class Algorithm(Enum):
@@ -42,41 +43,42 @@ def generate_graph(n: int, m: int, seed: int) -> nx.DiGraph:
 def save_apsp_to_cmatrix(graph: nx.DiGraph, mat):
     n = graph.number_of_nodes()
     distance_matrix = nx.floyd_warshall_numpy(graph)
-    distance_matrix = np.nan_to_num(distance_matrix, posinf=np.iinfo(np.intc).max)
+    distance_matrix = np.nan_to_num(distance_matrix, posinf=INF)
     dmi = distance_matrix.astype(np.intc)
     for i, j in itertools.product(range(n), range(n)):
-        mat[i][j] = ctypes.c_int(dmi[i][j])
+        mat[i * n + j] = ctypes.c_int(dmi[i][j])
 
 
 def save_graph_to_cmatrix(graph: nx.DiGraph, mat):
     n = graph.number_of_nodes()
-    INF = np.iinfo(np.int32).max
     for i, j in itertools.product(range(n), range(n)):
-        mat[i][j] = INF
+        mat[i * n + j] = INF
     for i, j, weight in graph.edges(data="weight", default=0):
-        mat[i][j] = weight
+        mat[i * n + j] = weight
 
 
 def compare_cmatrices(a, b, n: int) -> bool:
-    return all(a[i][j] == b[i][j] for i, j in itertools.product(range(n), range(n)))
+    return all(
+        a[i * n + j] == b[i * n + j] for i, j in itertools.product(range(n), range(n))
+    )
 
 
 def get_libparagraph():
     lib = ctypes.CDLL(ctypes.util.find_library("paragraph"), mode=ctypes.RTLD_GLOBAL)
 
     lib.pargph_alloc_matrix.argtypes = [ctypes.c_int, ctypes.c_int]
-    lib.pargph_alloc_matrix.restype = PPINT
+    lib.pargph_alloc_matrix.restype = PINT
 
-    lib.pargph_print_matrix.argtypes = [PPINT, ctypes.c_int, ctypes.c_int]
+    lib.pargph_print_matrix.argtypes = [PINT, ctypes.c_int, ctypes.c_int]
     lib.pargph_print_matrix.restype = None
 
-    lib.pargph_free_matrix.argtypes = [PPINT]
+    lib.pargph_free_matrix.argtypes = [PINT]
     lib.pargph_free_matrix.restype = None
 
-    lib.pargph_seq_floyd_warshall.argtypes = [PPINT, PPINT, ctypes.c_int]
+    lib.pargph_seq_floyd_warshall.argtypes = [PINT, PINT, ctypes.c_int]
     lib.pargph_seq_floyd_warshall.restype = None
 
-    lib.pargph_par_floyd_warshall.argtypes = [PPINT, PPINT, ctypes.c_int]
+    lib.pargph_par_floyd_warshall.argtypes = [PINT, PINT, ctypes.c_int]
     lib.pargph_par_floyd_warshall.restype = None
 
     return lib
@@ -158,7 +160,9 @@ def run_benchmarks(
             ):
                 density = percent_density / 100.0
                 m = int(max_m * density)
-                print(f"Starting trial: algo={algo.name}, n={n}, m={m} ({percent_density}% density)\n")
+                print(
+                    f"Starting trial: algo={algo.name}, n={n}, m={m} ({percent_density}% density)\n"
+                )
                 graph = generate_graph(n, m, 0)
                 print("Warming up...")
                 total = 0

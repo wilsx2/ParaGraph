@@ -18,10 +18,10 @@ int main(int argc, char *argv[])
         {INF,INF,4  ,INF,INF,INF},
         {4  ,INF,INF,INF,INF,INF}
     };
-    int **adj, **dist;
+    int *adj, *dist;
     adj = pargph_alloc_matrix(N, N);
     dist = pargph_alloc_matrix(N, N);
-    memcpy(adj[0], adj_data, sizeof(adj_data));
+    memcpy(adj, adj_data, sizeof(adj_data));
 
     pargph_seq_floyd_warshall(adj, dist, N);
 
