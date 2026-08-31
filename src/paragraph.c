@@ -1,4 +1,5 @@
 #include "paragraph.h"
+#include <stdio.h>
 #include <assert.h>
 #include <limits.h>
 #include <memory.h>
@@ -20,9 +21,21 @@ int **pargph_alloc_matrix(int m, int n) {
     return mat;
 }
 
+void pargph_print_matrix(int **mat, int m, int n) {
+    for (int i = 0; i < m; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (mat[i][j] == INF)
+                printf("INF ");
+            else
+                printf("%3d ", mat[i][j]);
+        }
+        printf("\n");
+    }
+}
+
 void pargph_free_matrix(int **mat) { free(mat); }
 
-void pargph_seq_floyd_warshall(int n, int **adj, int **dist) {
+void pargph_seq_floyd_warshall(int **adj, int **dist, int n) {
     assert(adj && dist);
 
     for (int i = 0; i < n * n; ++i)

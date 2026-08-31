@@ -43,7 +43,6 @@ include(FetchContent)
 #)
 #FetchContent_MakeAvailable(library)
 
-# Application
 add_library(paragraph SHARED src/paragraph.c)
 target_include_directories(paragraph PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -52,3 +51,5 @@ target_include_directories(paragraph PUBLIC
 #    OpenMP::OpenMP_CPP
 #    MPI::MPI_CPP
 #)
+add_executable(example src/example.c)
+target_link_libraries(example PRIVATE paragraph)
