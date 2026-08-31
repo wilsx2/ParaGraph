@@ -1,5 +1,6 @@
 from typing import Union
 from enum import Enum
+from datetime import datetime
 import networkx as nx
 import numpy as np
 import itertools
@@ -7,6 +8,7 @@ import ctypes.util
 import ctypes
 import random
 import time
+import csv
 import sys
 
 PPINT = ctypes.POINTER(ctypes.POINTER(ctypes.c_int))
@@ -61,7 +63,6 @@ def get_libparagraph():
     lib.pargph_print_matrix.argtypes = [PPINT, ctypes.c_int, ctypes.c_int]
     lib.pargph_print_matrix.restype = None
 
-
     lib.pargph_free_matrix.argtypes = [PPINT]
     lib.pargph_free_matrix.restype = None
 
@@ -114,6 +115,10 @@ if __name__ == "__main__":
     else:
         sys.exit("Paragraph is inaccessible to linker")
 
+    filename = datetime.now().strftime("%Y-%m-%d-%H-%M-%S.csv")
+    file = open(filename, mode='w', encoding='utf-8')
+    writer = csv.writer(file)
+
     for algo in [Algorithm.SEQUENTIAL_FLOYD_WARSHALL]:
         for e in range(2, 8):
             n = 2**e
@@ -129,4 +134,7 @@ if __name__ == "__main__":
                     total += elapsed
                     if i >= WARMUP_ITERS:
                         print(f"Trial #{i-WARMUP_ITERS}: {elapsed} ns")
+                    writer.writerow([n,m,elapsed])
                 print(f"Avg={total/TEST_ITERS}")
+
+    file.close()
