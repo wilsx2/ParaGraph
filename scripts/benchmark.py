@@ -6,6 +6,7 @@ import numpy as np
 import itertools
 import ctypes.util
 import ctypes
+import typer
 import random
 import time
 import csv
@@ -20,7 +21,6 @@ def random_u8_sequence(n: int):
     while n > 0:
         yield random.randint(0, 255)
         n -= 1
-
 
 def generate_graph(n: int, m: int, seed: int) -> nx.DiGraph:
     graph = nx.DiGraph()
@@ -49,7 +49,6 @@ def save_graph_to_cmatrix(graph: nx.DiGraph, mat):
             mat[i][j] = INF
     for i, j, weight in graph.edges(data='weight', default=0):
         mat[i][j] = weight
-
 
 def compare_cmatrices(a, b, n: int) -> bool:
     return all(a[i][j] == b[i][j] for i, j in itertools.product(range(n), range(n)))
@@ -105,26 +104,39 @@ def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
     lib.pargph_free_matrix(adj)
     return elapsed
 
-if __name__ == "__main__":
-    WARMUP_ITERS = 10
-    TEST_ITERS = 100
-    TOTAL_ITERS = WARMUP_ITERS + TEST_ITERS
+def run_benchmarks(
+    # i/o
+    filename: str = datetime.now().strftime("%Y-%m-%d-%H-%M-%S.csv"),
+    # iter
+    warmup_iters: int = 100,
+    test_iters: int = 100,
+    # density
+    min_density_perc: int = 10,
+    max_density_perc: int = 100,
+    density_perc_step: int = 10,
+    # node range
+    min_node_exp: int = 2,
+    max_node_exp: int = 8,
+    node_exp_scale: int = 2
+):
+    TOTAL_ITERS = warmup_iters + test_iters
 
     if(get_libparagraph()):
         print("Paragraph is accessible to linker")
     else:
         sys.exit("Paragraph is inaccessible to linker")
 
-    filename = datetime.now().strftime("%Y-%m-%d-%H-%M-%S.csv")
     file = open(filename, mode='w', encoding='utf-8')
     writer = csv.writer(file)
+    writer.writerow(["Nodes", "Edges", "Density", "ElapsedNS"])
 
     for algo in [Algorithm.SEQUENTIAL_FLOYD_WARSHALL]:
-        for e in range(2, 8):
-            n = 2**e
+        for e in range(min_node_exp, max_node_exp):
+            n = node_exp_scale**e
             max_m = n*(n-1)
-            for percent_density in range(10, 100 + 10, 10):
-                m = int(max_m * (percent_density / 100.0))
+            for percent_density in range(min_density_perc, max_density_perc + density_perc_step, density_perc_step):
+                density = percent_density / 100.0
+                m = int(max_m * density)
                 print(f"Starting trial: n={n}, m={m} ({percent_density}% density)\n")
                 graph = generate_graph(n, m, 0)
                 print("Warming up...")
@@ -132,9 +144,12 @@ if __name__ == "__main__":
                 for i in range(0, TOTAL_ITERS):
                     elapsed = time_algorithm(graph, algo)
                     total += elapsed
-                    if i >= WARMUP_ITERS:
-                        print(f"Trial #{i-WARMUP_ITERS}: {elapsed} ns")
-                    writer.writerow([n,m,elapsed])
-                print(f"Avg={total/TEST_ITERS}")
+                    if i >= warmup_iters:
+                        print(f"Trial #{i-warmup_iters}: {elapsed} ns")
+                    writer.writerow([n,m,density, elapsed])
+                print(f"Avg={total/test_iters}")
 
     file.close()
+
+if __name__ == "__main__":
+    typer.run(run_benchmarks)
