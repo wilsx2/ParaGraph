@@ -14,13 +14,16 @@ import sys
 
 PPINT = ctypes.POINTER(ctypes.POINTER(ctypes.c_int))
 
+
 class Algorithm(Enum):
     SEQUENTIAL_FLOYD_WARSHALL = 1
+
 
 def random_u8_sequence(n: int):
     while n > 0:
         yield random.randint(0, 255)
         n -= 1
+
 
 def generate_graph(n: int, m: int, seed: int) -> nx.DiGraph:
     graph = nx.DiGraph()
@@ -34,6 +37,7 @@ def generate_graph(n: int, m: int, seed: int) -> nx.DiGraph:
 
     return graph
 
+
 def save_apsp_to_cmatrix(graph: nx.DiGraph, mat):
     n = graph.number_of_nodes()
     distance_matrix = nx.floyd_warshall_numpy(graph)
@@ -42,16 +46,19 @@ def save_apsp_to_cmatrix(graph: nx.DiGraph, mat):
     for i, j in itertools.product(range(n), range(n)):
         mat[i][j] = ctypes.c_int(dmi[i][j])
 
+
 def save_graph_to_cmatrix(graph: nx.DiGraph, mat):
     n = graph.number_of_nodes()
     INF = np.iinfo(np.int32).max
     for i, j in itertools.product(range(n), range(n)):
-            mat[i][j] = INF
-    for i, j, weight in graph.edges(data='weight', default=0):
+        mat[i][j] = INF
+    for i, j, weight in graph.edges(data="weight", default=0):
         mat[i][j] = weight
+
 
 def compare_cmatrices(a, b, n: int) -> bool:
     return all(a[i][j] == b[i][j] for i, j in itertools.product(range(n), range(n)))
+
 
 def get_libparagraph():
     lib = ctypes.CDLL(ctypes.util.find_library("paragraph"), mode=ctypes.RTLD_GLOBAL)
@@ -69,6 +76,7 @@ def get_libparagraph():
     lib.pargph_seq_floyd_warshall.restype = None
 
     return lib
+
 
 def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
     lib = get_libparagraph()
@@ -91,7 +99,6 @@ def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
     test = lib.pargph_alloc_matrix(c_n, c_n)
     save_apsp_to_cmatrix(graph, test)
 
-
     if not compare_cmatrices(dist, test, n):
         print("Correct:\n")
         lib.pargph_print_matrix(test, c_n, c_n)
@@ -103,6 +110,7 @@ def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
     lib.pargph_free_matrix(dist)
     lib.pargph_free_matrix(adj)
     return elapsed
+
 
 def run_benchmarks(
     # i/o
@@ -117,24 +125,28 @@ def run_benchmarks(
     # node range
     min_node_exp: int = 2,
     max_node_exp: int = 8,
-    node_exp_scale: int = 2
+    node_exp_scale: int = 2,
 ):
     TOTAL_ITERS = warmup_iters + test_iters
 
-    if(get_libparagraph()):
+    if get_libparagraph():
         print("Paragraph is accessible to linker")
     else:
         sys.exit("Paragraph is inaccessible to linker")
 
-    file = open(filename, mode='w', encoding='utf-8')
+    file = open(filename, mode="w", encoding="utf-8")
     writer = csv.writer(file)
     writer.writerow(["Nodes", "Edges", "Density", "ElapsedNS"])
 
     for algo in [Algorithm.SEQUENTIAL_FLOYD_WARSHALL]:
         for e in range(min_node_exp, max_node_exp):
             n = node_exp_scale**e
-            max_m = n*(n-1)
-            for percent_density in range(min_density_perc, max_density_perc + density_perc_step, density_perc_step):
+            max_m = n * (n - 1)
+            for percent_density in range(
+                min_density_perc,
+                max_density_perc + density_perc_step,
+                density_perc_step,
+            ):
                 density = percent_density / 100.0
                 m = int(max_m * density)
                 print(f"Starting trial: n={n}, m={m} ({percent_density}% density)\n")
@@ -146,10 +158,11 @@ def run_benchmarks(
                     total += elapsed
                     if i >= warmup_iters:
                         print(f"Trial #{i-warmup_iters}: {elapsed} ns")
-                    writer.writerow([n,m,density, elapsed])
+                    writer.writerow([n, m, density, elapsed])
                 print(f"Avg={total/test_iters}")
 
     file.close()
+
 
 if __name__ == "__main__":
     typer.run(run_benchmarks)
