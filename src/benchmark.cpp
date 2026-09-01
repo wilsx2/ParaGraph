@@ -1,8 +1,8 @@
 #include "paragraph.h"
-#include <algorithm>
 #include <benchmark/benchmark.h>
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/pending/property.hpp>
+#include <algorithm>
 #include <generator>
 #include <random>
 #include <ranges>
@@ -21,8 +21,7 @@ static auto random_u8_sequence(std::mt19937 gen) -> std::generator<int> {
 static auto generate_graph(int n, int m, std::size_t seed) -> AdjacencyList {
     using namespace std::ranges::views;
     using std::ranges::sample;
-    static std::mt19937 gen;
-
+    std::mt19937 gen;
     gen.seed(seed);
 
     auto edge_permutations =
@@ -107,5 +106,3 @@ BENCHMARK_TEMPLATE(apsp, pargph_seq_floyd_warshall)
 BENCHMARK_TEMPLATE(apsp, pargph_par_floyd_warshall)
     ->ArgsProduct({{32, 64, 128, 256, 512, 1024, 2048}, {90}})
     ->Unit(benchmark::kMicrosecond);
-
-BENCHMARK_MAIN();
