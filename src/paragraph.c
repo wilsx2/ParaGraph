@@ -46,10 +46,10 @@ void pargph_seq_floyd_warshall(int *adj, int *dist, int n) {
 #define BLOCK_SIZE 64
 
 __attribute__((always_inline)) static inline void
-block_floyd(int *a, int *b, int *c, int k, int i, int j, int n) {
-    int nk = MIN(BLOCK_SIZE, n - k * BLOCK_SIZE);
-    int ni = MIN(BLOCK_SIZE, n - i * BLOCK_SIZE);
-    int nj = MIN(BLOCK_SIZE, n - j * BLOCK_SIZE);
+block_floyd(int *a, int *b, int *c, int nk, int ni, int nj, int n) {
+    nk = MIN(BLOCK_SIZE, n - nk * BLOCK_SIZE);
+    ni = MIN(BLOCK_SIZE, n - ni * BLOCK_SIZE);
+    nj = MIN(BLOCK_SIZE, n - nj * BLOCK_SIZE);
 
     for (int k = 0; k < nk; ++k) {
         for (int i = 0; i < ni; ++i) {
@@ -65,9 +65,9 @@ void pargph_par_floyd_warshall(int *adj, int *dist, int n) {
     memcpy(dist, adj, n * n * sizeof(int));
 
     int B = (n + BLOCK_SIZE - 1) / BLOCK_SIZE;
-    #pragma omp parallel
+#pragma omp parallel
     {
-        #pragma omp for
+#pragma omp for
         for (int i = 0; i < n; ++i) {
             dist[i * n + i] = 0;
         }
@@ -77,14 +77,16 @@ void pargph_par_floyd_warshall(int *adj, int *dist, int n) {
             int *B_kk = &dist[k * n * BLOCK_SIZE + k * BLOCK_SIZE];
             block_floyd(B_kk, B_kk, B_kk, k, k, k, n);
 
-            // Pivot Row
+#pragma omp for
             for (int j = 0; j < B; ++j) {
                 if (j == k)
                     continue;
                 int *B_kj = &dist[k * n * BLOCK_SIZE + j * BLOCK_SIZE];
+                // Pivot Row
                 block_floyd(B_kk, B_kj, B_kj, k, k, j, n);
             }
 
+#pragma omp for
             for (int i = 0; i < B; ++i) {
                 if (i == k)
                     continue;
