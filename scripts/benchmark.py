@@ -26,7 +26,6 @@ def random_u8_sequence(n: int):
         yield random.randint(0, 255)
         n -= 1
 
-
 def generate_graph(n: int, m: int, seed: int) -> nx.DiGraph:
     graph = nx.DiGraph()
     graph.add_nodes_from(range(n))

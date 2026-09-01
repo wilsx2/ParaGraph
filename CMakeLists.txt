@@ -9,6 +9,10 @@ set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+include_directories(
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+
 # Parallelize
 include(ProcessorCount)
 ProcessorCount(N_CORES)
@@ -45,23 +49,21 @@ endif()
 
 # Packages
 find_package(OpenMP REQUIRED)
-find_package(MPI REQUIRED COMPONENTS C)
+find_package(MPI REQUIRED COMPONENTS C CXX)
+find_package(benchmark REQUIRED)
+find_package(Boost REQUIRED)
 
-include(FetchContent)
-#FetchContent_Declare(
-#    library
-#    GIT_REPOSITORY https://github.com/user/library.git
-#    GIT_TAG vX.X
-#)
-#FetchContent_MakeAvailable(library)
-
+# ParaGraph
 add_library(paragraph SHARED src/paragraph.c)
-target_include_directories(paragraph PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/include
-)
 target_link_libraries(paragraph PRIVATE
     OpenMP::OpenMP_C
 #    MPI::MPI_CPP
 )
-add_executable(example src/example.c)
-target_link_libraries(example PRIVATE paragraph)
+
+# Benchmark
+add_executable(benchmark src/benchmark.cpp)
+target_link_libraries(benchmark PRIVATE
+    benchmark::benchmark_main
+    Boost::boost
+    paragraph
+)
