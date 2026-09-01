@@ -74,8 +74,8 @@ static auto compare_graphs(BoostDWG dwg, int *adj_mat, int n) {
 template <auto F>
 static void apsp(benchmark::State &state) {
     auto n = static_cast<int>(state.range(0));
-    auto density_percent = static_cast<int>(state.range(1));
-    auto m = static_cast<int>(n * static_cast<float>(density_percent) / 100.f);
+    auto density = static_cast<float>(state.range(1)) / 100.f;
+    auto m = static_cast<int>(n * density);
 
     auto i = 0;
     auto hash = std::hash<int>();
@@ -99,6 +99,11 @@ static void apsp(benchmark::State &state) {
         ::free(adj);
         ::free(dist);
     }
+
+    // Attach custom metrics
+    state.counters["nodes"] = n;
+    state.counters["edges"] = m;
+    state.counters["density"] = density;
 }
 BENCHMARK_TEMPLATE(apsp, pargph_seq_floyd_warshall)
     ->ArgsProduct({{32, 64, 128, 256, 512, 1024, 2048}, {90}})
