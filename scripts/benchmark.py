@@ -172,7 +172,7 @@ def run_benchmarks(
                     if i >= warmup_iters:
                         print(f"Trial #{i-warmup_iters}: {elapsed} ns")
                     writer.writerow([n, m, density, algo.name, elapsed])
-                print(f"Avg={total/test_iters}")
+                print(f"Avg={total/test_iters:,}")
 
     file.close()
 
