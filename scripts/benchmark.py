@@ -84,40 +84,52 @@ def get_libparagraph():
     return lib
 
 
-def time_algorithm(graph: nx.DiGraph, algo: Algorithm) -> int:
+def bench_algorithm(
+    graph: nx.DiGraph, algo: Algorithm, warmup_iters: int, test_iters: int
+) -> list[int]:
     lib = get_libparagraph()
     n = graph.number_of_nodes()
     c_n = ctypes.c_int(n)
+    TOTAL_ITERS = warmup_iters + test_iters
 
     adj = lib.pargph_alloc_matrix(c_n, c_n)
     save_graph_to_cmatrix(graph, adj)
 
-    dist = lib.pargph_alloc_matrix(c_n, c_n)
-
-    start = time.perf_counter_ns()
-    if algo == Algorithm.SEQUENTIAL_FLOYD_WARSHALL:
-        lib.pargph_seq_floyd_warshall(adj, dist, n)
-    elif algo == Algorithm.PARALLEL_FLOYD_WARSHALL:
-        lib.pargph_par_floyd_warshall(adj, dist, n)
-    else:
-        sys.exit(f"Algorithm provided not recognized {algo}")
-    end = time.perf_counter_ns()
-    elapsed = end - start
-
     test = lib.pargph_alloc_matrix(c_n, c_n)
     save_apsp_to_cmatrix(graph, test)
 
-    if not compare_cmatrices(dist, test, n):
-        print("Correct:\n")
-        lib.pargph_print_matrix(test, c_n, c_n)
-        print("Output:\n")
-        lib.pargph_print_matrix(dist, c_n, c_n)
-        sys.exit(f"Algorithm {algo} is incorrect")
+    dist = lib.pargph_alloc_matrix(c_n, c_n)
 
-    lib.pargph_free_matrix(test)
+    if algo == Algorithm.SEQUENTIAL_FLOYD_WARSHALL:
+        fn = lib.pargph_seq_floyd_warshall
+    elif algo == Algorithm.PARALLEL_FLOYD_WARSHALL:
+        fn = lib.pargph_par_floyd_warshall
+    else:
+        sys.exit(f"Algorithm provided not recognized {algo}")
+
+    samples = []
+    for i in range(TOTAL_ITERS):
+        start = time.perf_counter_ns()
+        fn(adj, dist, n)
+        end = time.perf_counter_ns()
+        elapsed = end - start
+
+        if i == warmup_iters:
+            if not compare_cmatrices(dist, test, n):
+                print("Correct:\n")
+                lib.pargph_print_matrix(test, c_n, c_n)
+                print("Output:\n")
+                lib.pargph_print_matrix(dist, c_n, c_n)
+                sys.exit(f"Algorithm {algo} is incorrect")
+
+        if i >= warmup_iters:
+            print(f"Trial #{i - warmup_iters}: {elapsed} ns")
+            samples.append(elapsed)
+
     lib.pargph_free_matrix(dist)
+    lib.pargph_free_matrix(test)
     lib.pargph_free_matrix(adj)
-    return elapsed
+    return samples
 
 
 def run_benchmarks(
@@ -135,8 +147,6 @@ def run_benchmarks(
     max_node_exp: int = 8,
     node_exp_scale: int = 2,
 ):
-    TOTAL_ITERS = warmup_iters + test_iters
-
     if get_libparagraph():
         print("Paragraph is accessible to linker")
     else:
@@ -164,15 +174,11 @@ def run_benchmarks(
                     f"Starting trial: algo={algo.name}, n={n}, m={m} ({percent_density}% density)\n"
                 )
                 graph = generate_graph(n, m, 0)
-                print("Warming up...")
-                total = 0
-                for i in range(0, TOTAL_ITERS):
-                    elapsed = time_algorithm(graph, algo)
-                    total += elapsed
-                    if i >= warmup_iters:
-                        print(f"Trial #{i-warmup_iters}: {elapsed} ns")
+                print("Benchmarking...")
+                samples = bench_algorithm(graph, algo, warmup_iters, test_iters)
+                for elapsed in enumerate(samples):
                     writer.writerow([n, m, density, algo.name, elapsed])
-                print(f"Avg={total/test_iters:,}")
+                print(f"Avg={sum(samples)/len(samples):,}")
 
     file.close()
 
