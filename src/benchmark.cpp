@@ -1,8 +1,8 @@
 #include "paragraph.h"
+#include <algorithm>
 #include <benchmark/benchmark.h>
 #include <boost/graph/adjacency_matrix.hpp>
 #include <boost/pending/property.hpp>
-#include <algorithm>
 #include <generator>
 #include <random>
 #include <ranges>
@@ -71,7 +71,9 @@ static auto compare_graphs(BoostDWG dwg, int *adj_mat, int n) {
     return true;
 }
 
-template <auto F>
+enum class Algo { SequentialFloydWarshall, ParallelFloydWarshall };
+
+template <Algo A>
 static void apsp(benchmark::State &state) {
     auto n = static_cast<int>(state.range(0));
     auto density = static_cast<float>(state.range(1)) / 100.f;
@@ -89,8 +91,11 @@ static void apsp(benchmark::State &state) {
         store_edges(adj, n, edges);
 
         state.ResumeTiming();
-        F(adj, dist, n);
-
+        if constexpr (A == Algo::SequentialFloydWarshall) {
+            pargph_seq_floyd_warshall(adj, dist, n);
+        } else if constexpr (A == Algo::ParallelFloydWarshall) {
+            pargph_par_floyd_warshall(adj, dist, n);
+        }
         state.PauseTiming();
         auto dwg = BoostDWG(n);
         store_edges(dwg, edges);
@@ -101,13 +106,18 @@ static void apsp(benchmark::State &state) {
     }
 
     // Attach custom metrics
+    if constexpr (A == Algo::SequentialFloydWarshall) {
+        state.SetLabel("Sequential Floyd Warshall");
+    } else if constexpr (A == Algo::ParallelFloydWarshall) {
+        state.SetLabel("Parallel Floyd Warshall");
+    }
     state.counters["nodes"] = n;
     state.counters["edges"] = m;
     state.counters["density"] = density;
 }
-BENCHMARK_TEMPLATE(apsp, pargph_seq_floyd_warshall)
+BENCHMARK_TEMPLATE(apsp, Algo::SequentialFloydWarshall)
     ->ArgsProduct({{32, 64, 128, 256, 512, 1024, 2048}, {90}})
     ->Unit(benchmark::kMicrosecond);
-BENCHMARK_TEMPLATE(apsp, pargph_par_floyd_warshall)
+BENCHMARK_TEMPLATE(apsp, Algo::ParallelFloydWarshall)
     ->ArgsProduct({{32, 64, 128, 256, 512, 1024, 2048}, {90}})
     ->Unit(benchmark::kMicrosecond);
